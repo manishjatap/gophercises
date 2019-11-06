@@ -1,15 +1,10 @@
 package mongopkg
 
-//package main
-
 import (
-	"context"
-	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 //MongoOps : Interface to perform mongo db operations
@@ -17,7 +12,7 @@ type MongoOps interface {
 	Insert()
 	Delete()
 	Update()
-	Get() []MongoOps
+	Get() []Task
 }
 
 //Task : Structure of task type
@@ -28,73 +23,76 @@ type Task struct {
 	CompletionDate string
 }
 
-//getConnection : Return the connection object to MongoDB [Not Exposed]
-func getConnection() *mongo.Client {
-
-	// Set client options
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
-
-	// Connect to MongoDB
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Check the connection
-	err = client.Ping(context.TODO(), nil)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//fmt.Println("Connected to MongoDB!")
-
-	return client
+//getSession : Return the connection object to MongoDB
+var getSession = func() (*mgo.Session, error) {
+	return mgo.Dial("mongodb://localhost:27017")
 }
 
-//getConnection : Return the connection object to MongoDB [Not Exposed]
-func disconnect(client *mongo.Client) {
-
+//closeSession : Close the MongoDB session
+var closeSession = func(s *mgo.Session) {
 	// Disconnect from MongoDB
-	err := client.Disconnect(context.TODO())
+	s.Close()
+}
 
-	if err != nil {
-		log.Fatal(err)
-	}
+//insertDoc : Insert document into MongoDB collection
+var insertDoc = func(collection *mgo.Collection, t Task) error {
+	return collection.Insert(t)
+}
 
-	//fmt.Println("Disonnected from MongoDB!")
+//removeDoc : Remove document from MongoDB collection
+var removeDoc = func(collection *mgo.Collection, filter interface{}) error {
+	return collection.Remove(filter)
+}
+
+//updateDoc : Update document from MongoDB collection
+var updateDoc = func(collection *mgo.Collection, filter interface{}, update interface{}) error {
+	return collection.Update(filter, update)
+}
+
+var getDoc = func(collection *mgo.Collection, filter interface{}, tlist *[]Task) error {
+	iter := collection.Find(filter).Iter()
+	return iter.All(tlist)
 }
 
 //Insert : Insert a document into a collection
-func (t Task) Insert() {
+func (t Task) Insert() error {
 
-	client := getConnection()
+	session, err := getSession()
+
+	if err != nil {
+		return err
+	}
+
+	defer closeSession(session)
+
+	//Prepare collection type
+	collection := session.DB("taskdb").C("tasks")
 
 	t.Status = "incomplete"
 	t.CreateDate = time.Now().String()
 
-	collection := client.Database("taskdb").Collection("tasks")
+	insertErr := insertDoc(collection, t)
 
-	_, err := collection.InsertOne(context.TODO(), t)
-
-	if err != nil {
-		log.Fatal(err)
+	if insertErr != nil {
+		return insertErr
 	}
 
-	disconnect(client)
+	return nil
 }
 
 //Get : Fetch all  the task from 'Tasks' collection
-func (t Task) Get() []MongoOps {
+func (t Task) Get() ([]Task, error) {
 
-	//Get the connection
-	client := getConnection()
+	session, err := getSession()
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer closeSession(session)
 
 	//Prepare collection type
-	collection := client.Database("taskdb").Collection("tasks")
-
-	var taskList []MongoOps
+	collection := session.DB("taskdb").C("tasks")
 
 	filter := bson.M{
 		"status": bson.M{
@@ -102,54 +100,53 @@ func (t Task) Get() []MongoOps {
 		},
 	}
 
-	cur, err := collection.Find(context.TODO(), filter, options.Find())
+	var taskList []Task
 
-	if err != nil {
-		log.Fatal(err) //Error handling
+	fetchErr := getDoc(collection, filter, &taskList)
+
+	if fetchErr != nil {
+		return taskList, fetchErr
 	}
 
-	for cur.Next(context.TODO()) {
-
-		var myTask Task
-
-		err := cur.Decode(&myTask)
-
-		if err != nil {
-			log.Fatal(err) //Error handling
-		}
-
-		taskList = append(taskList, myTask)
-	}
-
-	cur.Close(context.TODO())
-
-	disconnect(client)
-
-	return taskList
+	return taskList, nil
 }
 
 //Delete : Remove document from collection
-func (t Task) Delete() {
+func (t Task) Delete() error {
 
-	client := getConnection()
-
-	collection := client.Database("taskdb").Collection("tasks")
-
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"name": t.Name})
+	session, err := getSession()
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	disconnect(client)
+	defer closeSession(session)
+
+	//Prepare collection type
+	collection := session.DB("taskdb").C("tasks")
+
+	removeErr := removeDoc(collection, bson.M{"name": t.Name})
+
+	if removeErr != nil {
+		return removeErr
+	}
+
+	return nil
 }
 
 //Update : Update the document from the collection
-func (t Task) Update() {
+func (t Task) Update() error {
 
-	client := getConnection()
+	session, err := getSession()
 
-	collection := client.Database("taskdb").Collection("tasks")
+	if err != nil {
+		return err
+	}
+
+	defer closeSession(session)
+
+	//Prepare collection type
+	collection := session.DB("taskdb").C("tasks")
 
 	filter := bson.M{
 		"name": bson.M{
@@ -164,28 +161,11 @@ func (t Task) Update() {
 		},
 	}
 
-	_, err := collection.UpdateOne(context.TODO(), filter, update)
+	updateErr := updateDoc(collection, filter, update)
 
-	if err != nil {
-		log.Fatal(err)
+	if updateErr != nil {
+		return updateErr
 	}
 
-	disconnect(client)
+	return nil
 }
-
-// func main() {
-// 	fmt.Println("Mongo")
-
-// 	t := new(Task)
-// 	//t.Name = "Go to school"
-
-// 	fmt.Println(t.Get())
-// 	//GetConnection()
-// 	//Insert("Prepare a tea!")
-// 	//Insert("Prepare a coffee!")cd ..
-// 	//Insert("Prepare a rice!")
-// 	//Get()
-// 	//Delete("Prepare a rice!")
-// 	//Update("Prepare a conffee!", false)
-
-// }
