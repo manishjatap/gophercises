@@ -9,15 +9,9 @@ import (
 )
 
 func TestGetSessionActualImplemenation(t *testing.T) {
-	defer func() {
-		if err := recover(); err != nil {
-			assert.Equal(t, err, "Session already closed", "Expected : Session already closed Error")
-		}
-	}()
-
-	dummyTask := Task{"fake-task", "fake-date", "Incomplete", "fake-date"}
-
-	_ = dummyTask.Insert()
+	session, err := getSession()
+	closeSession(session)
+	assert.NoError(t, err, "No error required")
 }
 
 func TestInsertActualImplemenation(t *testing.T) {
@@ -33,7 +27,6 @@ func TestInsertActualImplemenation(t *testing.T) {
 
 	_ = dummyTask.Insert()
 
-	resetGetSession()
 }
 
 func TestGetActualImplemenation(t *testing.T) {
@@ -49,7 +42,6 @@ func TestGetActualImplemenation(t *testing.T) {
 
 	_, _ = dummyTask.Get()
 
-	resetGetSession()
 }
 
 func TestDeleteActualImplemenation(t *testing.T) {
@@ -65,7 +57,6 @@ func TestDeleteActualImplemenation(t *testing.T) {
 
 	_ = dummyTask.Delete()
 
-	resetGetSession()
 }
 
 func TestUpdateActualImplemenation(t *testing.T) {
@@ -81,7 +72,6 @@ func TestUpdateActualImplemenation(t *testing.T) {
 
 	_ = dummyTask.Update()
 
-	resetGetSession()
 }
 
 func TestInsertSuccess(t *testing.T) {
@@ -93,7 +83,7 @@ func TestInsertSuccess(t *testing.T) {
 
 	assert.NoError(t, err, "Expected : No Error")
 	resetInsertDoc()
-	resetGetSession()
+
 }
 
 func TestGetSuccess(t *testing.T) {
@@ -105,7 +95,7 @@ func TestGetSuccess(t *testing.T) {
 
 	assert.NoError(t, err, "Expected : No Error")
 	resetGetDoc()
-	resetGetSession()
+
 }
 
 func TestDeleteSuccess(t *testing.T) {
@@ -117,7 +107,7 @@ func TestDeleteSuccess(t *testing.T) {
 
 	assert.NoError(t, err, "Expected : No Error")
 	resetRemoveDoc()
-	resetGetSession()
+
 }
 
 func TestUpdateSuccess(t *testing.T) {
@@ -129,7 +119,7 @@ func TestUpdateSuccess(t *testing.T) {
 
 	assert.NoError(t, err, "Expected : No Error")
 	resetUpdateDoc()
-	resetGetSession()
+
 }
 
 func TestInsertError(t *testing.T) {
@@ -142,7 +132,7 @@ func TestInsertError(t *testing.T) {
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
 	resetInsertDoc()
-	resetGetSession()
+
 }
 
 func TestGetError(t *testing.T) {
@@ -155,7 +145,7 @@ func TestGetError(t *testing.T) {
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
 	resetGetDoc()
-	resetGetSession()
+
 }
 
 func TestDeleteError(t *testing.T) {
@@ -168,7 +158,7 @@ func TestDeleteError(t *testing.T) {
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
 	resetRemoveDoc()
-	resetGetSession()
+
 }
 
 func TestUpdateError(t *testing.T) {
@@ -181,7 +171,7 @@ func TestUpdateError(t *testing.T) {
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
 	resetUpdateDoc()
-	resetGetSession()
+
 }
 
 func TestInsertSessionError(t *testing.T) {
@@ -192,7 +182,7 @@ func TestInsertSessionError(t *testing.T) {
 	err := dummyTask.Insert()
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
-	resetGetSession()
+
 }
 
 func TestGetSessionError(t *testing.T) {
@@ -203,7 +193,7 @@ func TestGetSessionError(t *testing.T) {
 	_, err := dummyTask.Get()
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
-	resetGetSession()
+
 }
 
 func TestDeleteSessionError(t *testing.T) {
@@ -214,7 +204,7 @@ func TestDeleteSessionError(t *testing.T) {
 	err := dummyTask.Delete()
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
-	resetGetSession()
+
 }
 
 func TestUpdateSessionError(t *testing.T) {
@@ -225,7 +215,7 @@ func TestUpdateSessionError(t *testing.T) {
 	err := dummyTask.Update()
 
 	assert.Equal(t, err.Error(), expectedErr, "Expected : Error")
-	resetGetSession()
+
 }
 
 func mockGetSession() {
